@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathMaster Admin - Quản Trị Không Gian Riêng</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .sidebar-btn { transition: all 0.2s ease-in-out; }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- CẢNH BÁO NẾU KHÔNG HỢP LỆ HOẶC BỊ KHÓA TỪ MÁY CHỦ -->
+    <div id="tenant-error-screen" class="hidden fixed inset-0 bg-slate-900 text-white z-50 flex items-center justify-center p-6 text-center">
+        <div class="max-w-md space-y-4">
+            <i class="fa-solid fa-ban text-5xl text-rose-500"></i>
+            <h2 id="tenant-error-title" class="text-2xl font-extrabold">Không Xác Định Được Không Gian Quản Trị</h2>
+            <p id="tenant-error-desc" class="text-sm text-slate-300">Vui lòng truy cập đúng đường dẫn được cấp phát (ví dụ: <code>admin.html?tenant=ma_cua_ban</code>).</p>
+        </div>
+    </div>
+
+    <!-- MÀN HÌNH ĐĂNG NHẬP CỦA TỪNG NGƯỜI MUA -->
+    <div id="admin-login-gate" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-6 border border-slate-200">
+            <div class="text-center space-y-2">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-slate-800 to-indigo-700 text-white flex items-center justify-center text-2xl mx-auto shadow-lg">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h1 id="login-tenant-name" class="text-xl font-extrabold text-slate-900">MathMaster Admin</h1>
+                <p id="login-tenant-id-label" class="text-xs font-mono text-indigo-600 font-bold">Đang kiểm tra kết nối máy chủ...</p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5">Mật khẩu quản trị của đơn vị bạn</label>
+                    <input type="password" id="admin-passcode-input" placeholder="Nhập mật khẩu quản trị..." onkeydown="if(event.key==='Enter') AdminAuth.verifyPasscode()" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-indigo-600 focus:bg-white rounded-xl text-sm outline-none transition">
+                </div>
+                <button onclick="AdminAuth.verifyPasscode()" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm shadow-lg transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-right-to-bracket"></i> Đăng Nhập Quản Trị
+                </button>
+            </div>
+
+            <div class="text-center pt-2 border-t border-slate-100">
+                <a id="link-back-student" href="index.html" class="text-xs font-semibold text-slate-500 hover:text-indigo-600 transition">
+                    <i class="fa-solid fa-arrow-left mr-1"></i> Sang trang Học Sinh của đơn vị
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- KHUNG LÀM VIỆC CỦA ADMIN CON -->
+    <div id="admin-workspace" class="hidden flex-grow flex flex-col lg:flex-row">
+        <aside class="w-full lg:w-72 bg-slate-900 text-white flex flex-col justify-between shrink-0">
+            <div class="p-6 space-y-6">
+                <div class="flex items-center gap-3 pb-4 border-b border-slate-800">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white font-black text-lg shadow">
+                        <i class="fa-solid fa-sliders"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div id="sidebar-tenant-title" class="font-extrabold text-sm truncate">MathMaster CMS</div>
+                        <div id="sidebar-tenant-id" class="text-[11px] font-mono text-emerald-400 truncate">tenant: default</div>
+                    </div>
+                </div>
+
+                <nav class="space-y-1.5">
+                    <button onclick="AdminApp.switchTab('theory')" id="tab-theory" class="sidebar-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold bg-indigo-600 text-white shadow">
+                        <i class="fa-solid fa-book-open w-5 text-center"></i> Lý Thuyết & Luyện Tập
+                    </button>
+                    <button onclick="AdminApp.switchTab('exams')" id="tab-exams" class="sidebar-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-300 hover:bg-slate-800 hover:text-white">
+                        <i class="fa-solid fa-file-signature w-5 text-center"></i> Quản Lý Đề Kiểm Tra
+                    </button>
+                    <button onclick="AdminApp.switchTab('users')" id="tab-users" class="sidebar-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-300 hover:bg-slate-800 hover:text-white">
+                        <i class="fa-solid fa-users-gear w-5 text-center"></i> Học Viên Của Tôi
+                    </button>
+                    <button onclick="AdminApp.switchTab('branding')" id="tab-branding" class="sidebar-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-300 hover:bg-slate-800 hover:text-white">
+                        <i class="fa-solid fa-palette w-5 text-center"></i> Thương Hiệu Riêng
+                    </button>
+                </nav>
+            </div>
+
+            <div class="p-6 border-t border-slate-800 space-y-3">
+                <a id="sidebar-student-link" href="index.html" target="_blank" class="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Mở Trang Học Sinh
+                </a>
+                <button onclick="AdminAuth.lockPortal()" class="w-full py-2.5 px-4 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition">
+                    <i class="fa-solid fa-lock"></i> Đăng Xuất
+                </button>
+            </div>
+        </aside>
+
+        <div class="flex-grow flex flex-col min-w-0">
+            <header class="bg-white border-b border-slate-200 px-6 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-30">
+                <div>
+                    <h2 id="page-title" class="text-xl font-extrabold text-slate-800">Quản Lý Lý Thuyết & Luyện Tập</h2>
+                    <p id="page-subtitle" class="text-xs text-slate-500">Dữ liệu cô lập riêng cho đơn vị của bạn</p>
+                </div>
+                <button onclick="AdminCloud.syncAllToFirestore()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow transition flex items-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i> Lưu Thay Đổi
+                </button>
+            </header>
+
+            <main class="p-6 max-w-7xl w-full mx-auto space-y-6 flex-grow">
+                <!-- TAB 1: LÝ THUYẾT -->
+                <section id="section-theory" class="admin-section space-y-6">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <label class="text-xs font-bold text-slate-500 uppercase">Chọn Dạng Toán:</label>
+                            <select id="theory-topic-selector" onchange="AdminApp.loadTheoryEditor(this.value)" class="px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-800 outline-none"></select>
+                        </div>
+                        <button onclick="AdminApp.openNewTopicModal()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow transition flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i> Thêm Dạng Toán Mới
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-5 shadow-sm">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                            <span id="editing-topic-id-badge" class="text-[11px] font-mono font-bold px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">ID: g1_add_sub</span>
+                            <button onclick="AdminApp.deleteCurrentTopic()" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold">Xóa dạng này</button>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Tên hiển thị dạng toán</label>
+                                <input type="text" id="edit-theory-title" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Thời gian đếm ngược (giây/câu)</label>
+                                <input type="number" id="edit-theory-time" min="5" max="300" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold outline-none">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-amber-700 mb-1">Gợi ý nhanh khi làm bài</label>
+                            <input type="text" id="edit-theory-hint" class="w-full px-4 py-2.5 bg-amber-50/40 border border-amber-200 rounded-xl text-sm outline-none">
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-indigo-700 mb-1">Định nghĩa & Công thức</label>
+                                <textarea id="edit-theory-def" rows="6" class="w-full p-3.5 bg-indigo-50/30 border border-indigo-200 rounded-xl text-sm outline-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-amber-700 mb-1">Mẹo tính toán</label>
+                                <textarea id="edit-theory-tips" rows="6" class="w-full p-3.5 bg-amber-50/30 border border-amber-200 rounded-xl text-sm outline-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-emerald-700 mb-1">Ví dụ mẫu minh họa</label>
+                                <textarea id="edit-theory-ex" rows="6" class="w-full p-3.5 bg-emerald-50/30 border border-emerald-200 rounded-xl text-sm outline-none"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end pt-3 border-t border-slate-100">
+                            <button onclick="AdminApp.saveTheoryChanges()" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md transition">
+                                Cập Nhật Dạng Toán
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 2: ĐỀ KIỂM TRA -->
+                <section id="section-exams" class="admin-section hidden space-y-6">
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-sm">
+                        <h3 class="text-base font-extrabold text-slate-800">Thêm Đề Kiểm Tra Mới</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Khối Lớp</label>
+                                <select id="new-exam-grade" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none">
+                                    <option value="1">Lớp 1</option><option value="2">Lớp 2</option><option value="3">Lớp 3</option>
+                                    <option value="4">Lớp 4</option><option value="5">Lớp 5</option><option value="6">Lớp 6</option>
+                                    <option value="7">Lớp 7</option><option value="8">Lớp 8</option><option value="9">Lớp 9</option>
+                                </select>
+                            </div>
+                            <div class="lg:col-span-2">
+                                <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Tên Đề Kiểm Tra</label>
+                                <input type="text" id="new-exam-title" placeholder="VD: Đề Kiểm Tra Lớp 1" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Thời Gian (Phút)</label>
+                                <input type="number" id="new-exam-duration" value="30" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Dạng Toán</label>
+                                <select id="new-exam-topic" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none">
+                                    <option value="g1_add_sub">g1_add_sub</option>
+                                    <option value="g1_compare">g1_compare</option>
+                                    <option value="g2_mental_mul">g2_mental_mul</option>
+                                    <option value="g6_integers">g6_integers</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                            <input type="text" id="new-exam-filename" placeholder="Tên tệp hiển thị (VD: De_Thi.pdf)" class="w-full sm:w-1/2 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none">
+                            <button onclick="AdminApp.addExam()" class="w-full sm:w-auto px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow transition">
+                                Phát Hành Đề Kiểm Tra
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-extrabold text-slate-500 uppercase">
+                                    <th class="py-3 px-4">Lớp</th>
+                                    <th class="py-3 px-4">Tiêu Đề</th>
+                                    <th class="py-3 px-4">Thời Lượng</th>
+                                    <th class="py-3 px-4">Dạng Toán</th>
+                                    <th class="py-3 px-4 text-right">Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-exams-tbody" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- TAB 3: HỌC VIÊN RIÊNG CỦA TENANT -->
+                <section id="section-users" class="admin-section hidden space-y-6">
+                    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                            <h3 class="font-bold text-slate-800 text-base">Danh Sách Học Viên Thuộc Đơn Vị Bạn</h3>
+                            <button onclick="AdminCloud.fetchTenantUsers()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-xl">Làm mới</button>
+                        </div>
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-extrabold text-slate-500 uppercase">
+                                    <th class="py-3.5 px-4">Học Sinh</th>
+                                    <th class="py-3.5 px-4">Email</th>
+                                    <th class="py-3.5 px-4">Level & XP</th>
+                                    <th class="py-3.5 px-4">Đã Giải / Đúng</th>
+                                    <th class="py-3.5 px-4 text-right">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-users-tbody" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- TAB 4: THƯƠNG HIỆU RIÊNG -->
+                <section id="section-branding" class="admin-section hidden space-y-6">
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 max-w-xl space-y-4 shadow-sm">
+                        <h3 class="font-extrabold text-slate-800 text-base">Tùy Chỉnh Tên Thương Hiệu Hiển Thị Cho Học Sinh</h3>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1">Tên ứng dụng / Trung tâm hiển thị trên Header</label>
+                            <input type="text" id="brand-title-input" placeholder="VD: Toán Tư Duy Anpha" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1">Tiêu đề Banner Trang Chủ</label>
+                            <input type="text" id="brand-banner-input" placeholder="VD: Chinh phục môn Toán cùng Thầy Minh!" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none">
+                        </div>
+                        <button onclick="AdminApp.saveBranding()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow">
+                            Lưu Thương Hiệu
+                        </button>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- MODAL THÊM DẠNG TOÁN -->
+    <div id="new-topic-modal" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <h3 class="text-lg font-extrabold">Thêm Dạng Toán Mới</h3>
+            <input type="text" id="modal-topic-id" placeholder="Mã ID (VD: g1_shapes)" class="w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-sm font-mono outline-none">
+            <input type="text" id="modal-topic-title" placeholder="Tên chuyên đề" class="w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-sm outline-none">
+            <input type="number" id="modal-topic-time" value="30" class="w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-sm font-mono outline-none">
+            <div class="flex gap-2">
+                <button onclick="document.getElementById('new-topic-modal').classList.add('hidden')" class="flex-1 py-2.5 bg-slate-100 rounded-xl text-xs font-bold">Hủy</button>
+                <button onclick="AdminApp.createNewTopic()" class="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold">Tạo</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { 
+            getFirestore, doc, setDoc, getDoc, getDocs, collection, onSnapshot, updateDoc 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA9dxXmIbEd__0EjaI7kqFNlT18_gwrlA4",
+            authDomain: "mathmaster-app-64474.firebaseapp.com",
+            projectId: "mathmaster-app-64474",
+            storageBucket: "mathmaster-app-64474.firebasestorage.app",
+            messagingSenderId: "472731341311",
+            appId: "1:472731341311:web:8c7d9d615b9cd46f53d7ca",
+            measurementId: "G-N2ZB6TWW29"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Lấy tenantId từ URL (?tenant=...)
+        const urlParams = new URLSearchParams(window.location.search);
+        const TENANT_ID = (urlParams.get('tenant') || 'default').toLowerCase();
+
+        window.AdminAuth = {
+            tenantMeta: null,
+
+            async bootstrap() {
+                document.getElementById('link-back-student').href = `index.html?tenant=${TENANT_ID}`;
+                document.getElementById('sidebar-student-link').href = `index.html?tenant=${TENANT_ID}`;
+
+                // Kiểm tra trạng thái Tenant trên Máy Chủ Trung Tâm
+                const tenantSnap = await getDoc(doc(db, "tenants", TENANT_ID));
+                if (!tenantSnap.exists() && TENANT_ID !== 'default') {
+                    this.showError("Không Tìm Thấy Đơn Vị Quản Trị", `Mã khách hàng "${TENANT_ID}" chưa được cấp phép trên máy chủ.`);
+                    return;
+                }
+
+                this.tenantMeta = tenantSnap.exists()
+                    ? tenantSnap.data()
+                    : { name: 'MathMaster Default', adminPasscode: 'admin123', status: 'active' };
+
+                if (this.tenantMeta.status === 'suspended') {
+                    this.showError("Tài Khoản Đã Bị Tạm Khóa", "Máy chủ trung tâm đã tạm ngưng hoạt động của đơn vị này. Vui lòng liên hệ nhà cung cấp.");
+                    return;
+                }
+
+                document.getElementById('login-tenant-name').innerText = this.tenantMeta.name;
+                document.getElementById('login-tenant-id-label').innerText = `Mã không gian: ${TENANT_ID}`;
+                document.getElementById('sidebar-tenant-title').innerText = this.tenantMeta.name;
+                document.getElementById('sidebar-tenant-id').innerText = `tenant: ${TENANT_ID}`;
+
+                if (sessionStorage.getItem(`mathmaster_admin_${TENANT_ID}`) === 'true') {
+                    this.unlockWorkspace();
+                }
+            },
+
+            showError(title, desc) {
+                document.getElementById('admin-login-gate').classList.add('hidden');
+                document.getElementById('tenant-error-title').innerText = title;
+                document.getElementById('tenant-error-desc').innerText = desc;
+                document.getElementById('tenant-error-screen').classList.remove('hidden');
+            },
+
+            verifyPasscode() {
+                const input = document.getElementById('admin-passcode-input').value.trim();
+                const validPass = this.tenantMeta?.adminPasscode || 'admin123';
+                if (input === validPass) {
+                    sessionStorage.setItem(`mathmaster_admin_${TENANT_ID}`, 'true');
+                    this.unlockWorkspace();
+                } else {
+                    alert('❌ Mật khẩu quản trị không chính xác!');
+                }
+            },
+
+            unlockWorkspace() {
+                document.getElementById('admin-login-gate').classList.add('hidden');
+                document.getElementById('admin-workspace').classList.remove('hidden');
+                AdminCloud.init();
+            },
+
+            lockPortal() {
+                sessionStorage.removeItem(`mathmaster_admin_${TENANT_ID}`);
+                location.reload();
+            }
+        };
+
+        window.AdminCloud = {
+            theoryData: {},
+            examsData: [],
+            brandTitle: '',
+            brandBanner: '',
+            usersList: [],
+
+            async init() {
+                const contentRef = doc(db, "tenants", TENANT_ID, "content", "main");
+                onSnapshot(contentRef, async (snap) => {
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        this.theoryData = data.theory || {};
+                        this.examsData = data.exams || [];
+                        this.brandTitle = data.brandTitle || AdminAuth.tenantMeta.name;
+                        this.brandBanner = data.brandBanner || 'Chinh phục môn Toán mỗi ngày!';
+                    } else {
+                        this.theoryData = {
+                            'g1_add_sub': { title: 'Cộng Trừ Cơ Bản (Phạm vi 20)', practiceTime: 30, hint: 'Dùng ngón tay hoặc đếm tiến/lùi.', def: 'Phép cộng gộp hai nhóm số lại với nhau.', tips: 'Dùng ngón tay đếm tiến/lùi.', ex: '5 + 4 = 9.' }
+                        };
+                        this.examsData = [];
+                        this.brandTitle = AdminAuth.tenantMeta.name;
+                        this.brandBanner = 'Chinh phục môn Toán mỗi ngày!';
+                        await this.syncAllToFirestore(true);
+                    }
+                    AdminApp.refreshUI();
+                });
+
+                await this.fetchTenantUsers();
+            },
+
+            async syncAllToFirestore(silent = false) {
+                await setDoc(doc(db, "tenants", TENANT_ID, "content", "main"), {
+                    theory: this.theoryData,
+                    exams: this.examsData,
+                    brandTitle: this.brandTitle,
+                    brandBanner: this.brandBanner,
+                    updatedAt: new Date().toISOString()
+                }, { merge: true });
+
+                if (!silent) alert("✅ Đã lưu dữ liệu riêng của đơn vị bạn!");
+            },
+
+            async fetchTenantUsers() {
+                const snap = await getDocs(collection(db, "tenants", TENANT_ID, "users"));
+                this.usersList = [];
+                snap.forEach(d => this.usersList.push({ uid: d.id, ...d.data() }));
+                AdminApp.renderUsersTable();
+            },
+
+            async resetUser(uid) {
+                if (!confirm("Đặt lại tiến độ của học viên này về 0?")) return;
+                await updateDoc(doc(db, "tenants", TENANT_ID, "users", uid), {
+                    xp: 0, level: 1, streak: 1, totalSolved: 0, correctSolved: 0, topicStats: {}
+                });
+                await this.fetchTenantUsers();
+            }
+        };
+
+        window.AdminApp = {
+            currentEditingTopicId: 'g1_add_sub',
+
+            switchTab(tabName) {
+                document.querySelectorAll('.admin-section').forEach(s => s.classList.add('hidden'));
+                document.getElementById(`section-${tabName}`).classList.remove('hidden');
+
+                document.querySelectorAll('.sidebar-btn').forEach(b => {
+                    b.classList.remove('bg-indigo-600', 'text-white', 'shadow');
+                    b.classList.add('text-slate-300');
+                });
+                document.getElementById(`tab-${tabName}`).classList.add('bg-indigo-600', 'text-white', 'shadow');
+            },
+
+            refreshUI() {
+                const keys = Object.keys(AdminCloud.theoryData);
+                if (!keys.includes(this.currentEditingTopicId) && keys.length > 0) {
+                    this.currentEditingTopicId = keys[0];
+                }
+                const selector = document.getElementById('theory-topic-selector');
+                selector.innerHTML = keys.map(k => `<option value="${k}" ${k === this.currentEditingTopicId ? 'selected' : ''}>[${k}] ${AdminCloud.theoryData[k].title}</option>`).join('');
+                this.loadTheoryEditor(this.currentEditingTopicId);
+                this.renderExamsTable();
+
+                document.getElementById('brand-title-input').value = AdminCloud.brandTitle || '';
+                document.getElementById('brand-banner-input').value = AdminCloud.brandBanner || '';
+            },
+
+            loadTheoryEditor(id) {
+                this.currentEditingTopicId = id;
+                const d = AdminCloud.theoryData[id];
+                if (!d) return;
+                document.getElementById('editing-topic-id-badge').innerText = `ID: ${id}`;
+                document.getElementById('edit-theory-title').value = d.title || '';
+                document.getElementById('edit-theory-time').value = d.practiceTime || 30;
+                document.getElementById('edit-theory-hint').value = d.hint || '';
+                document.getElementById('edit-theory-def').value = d.def || '';
+                document.getElementById('edit-theory-tips').value = d.tips || '';
+                document.getElementById('edit-theory-ex').value = d.ex || '';
+            },
+
+            async saveTheoryChanges() {
+                AdminCloud.theoryData[this.currentEditingTopicId] = {
+                    title: document.getElementById('edit-theory-title').value.trim(),
+                    practiceTime: parseInt(document.getElementById('edit-theory-time').value) || 30,
+                    hint: document.getElementById('edit-theory-hint').value.trim(),
+                    def: document.getElementById('edit-theory-def').value.trim(),
+                    tips: document.getElementById('edit-theory-tips').value.trim(),
+                    ex: document.getElementById('edit-theory-ex').value.trim()
+                };
+                await AdminCloud.syncAllToFirestore();
+            },
+
+            openNewTopicModal() {
+                document.getElementById('new-topic-modal').classList.remove('hidden');
+            },
+
+            async createNewTopic() {
+                const id = document.getElementById('modal-topic-id').value.trim();
+                const title = document.getElementById('modal-topic-title').value.trim();
+                const practiceTime = parseInt(document.getElementById('modal-topic-time').value) || 30;
+                if (!id || !title) return alert("Nhập đủ thông tin!");
+                AdminCloud.theoryData[id] = { title, practiceTime, hint: '', def: '', tips: '', ex: '' };
+                this.currentEditingTopicId = id;
+                document.getElementById('new-topic-modal').classList.add('hidden');
+                await AdminCloud.syncAllToFirestore();
+            },
+
+            async deleteCurrentTopic() {
+                if (Object.keys(AdminCloud.theoryData).length <= 1) return alert("Phải giữ tối thiểu 1 chuyên đề!");
+                delete AdminCloud.theoryData[this.currentEditingTopicId];
+                await AdminCloud.syncAllToFirestore();
+            },
+
+            renderExamsTable() {
+                const tbody = document.getElementById('admin-exams-tbody');
+                tbody.innerHTML = AdminCloud.examsData.map((ex, i) => `
+                    <tr>
+                        <td class="py-3 px-4 font-bold">Lớp ${ex.grade}</td>
+                        <td class="py-3 px-4 font-semibold">${ex.title}</td>
+                        <td class="py-3 px-4 font-mono text-xs">${ex.duration} phút</td>
+                        <td class="py-3 px-4 font-mono text-xs">${ex.topicId}</td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="AdminApp.deleteExam(${i})" class="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold">Xóa</button>
+                        </td>
+                    </tr>
+                `).join('');
+            },
+
+            async addExam() {
+                const grade = parseInt(document.getElementById('new-exam-grade').value);
+                const title = document.getElementById('new-exam-title').value.trim();
+                const duration = parseInt(document.getElementById('new-exam-duration').value) || 30;
+                const topicId = document.getElementById('new-exam-topic').value;
+                const fileName = document.getElementById('new-exam-filename').value.trim() || `De_Lop_${grade}.pdf`;
+                if (!title) return alert("Nhập tên đề!");
+                AdminCloud.examsData.push({ id: 'ex_' + Date.now(), grade, title, duration, fileName, topicId });
+                document.getElementById('new-exam-title').value = '';
+                await AdminCloud.syncAllToFirestore();
+            },
+
+            async deleteExam(idx) {
+                AdminCloud.examsData.splice(idx, 1);
+                await AdminCloud.syncAllToFirestore();
+            },
+
+            async saveBranding() {
+                AdminCloud.brandTitle = document.getElementById('brand-title-input').value.trim();
+                AdminCloud.brandBanner = document.getElementById('brand-banner-input').value.trim();
+                await AdminCloud.syncAllToFirestore();
+            },
+
+            renderUsersTable() {
+                const tbody = document.getElementById('admin-users-tbody');
+                if (AdminCloud.usersList.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-400 text-xs">Chưa có học viên nào đăng ký ở đơn vị này.</td></tr>`;
+                    return;
+                }
+                tbody.innerHTML = AdminCloud.usersList.map(u => `
+                    <tr>
+                        <td class="py-3 px-4 font-bold">${u.name || 'Học sinh'}</td>
+                        <td class="py-3 px-4 text-xs text-slate-500">${u.email || '-'}</td>
+                        <td class="py-3 px-4 font-mono text-xs font-bold">Lv.${u.level || 1} (${u.xp || 0} XP)</td>
+                        <td class="py-3 px-4 font-mono text-xs">${u.totalSolved || 0} / ${u.correctSolved || 0}</td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="AdminCloud.resetUser('${u.uid}')" class="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold">Reset</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => AdminAuth.bootstrap());
+    </script>
+</body>
+</html>
