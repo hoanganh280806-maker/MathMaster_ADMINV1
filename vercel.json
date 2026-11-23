@@ -1,5 +1,5 @@
 {
-  "routes": [
-    { "src": "/", "destination": "/MathMaster_ADMIN_V2" }
+  "rewrites": [
+    { "source": "/", "destination": "/MathMaster_ADMIN_V2.html" }
   ]
 }
